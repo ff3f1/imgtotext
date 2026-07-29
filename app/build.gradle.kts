@@ -1,5 +1,6 @@
-apply(plugin = "com.android.application")
-apply(plugin = "kotlin-android")
+plugins {
+    id("com.android.application")
+}
 
 android {
     namespace = "com.example.imgtotext"
