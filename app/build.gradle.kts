@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.plugin.compose") version "2.0.0" // Подставляем официальный плагин компилятора Compose для Kotlin 2.x
 }
 
 android {
@@ -35,9 +36,7 @@ android {
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
-    }
+    // Блок composeOptions больше не нужен, компилятор управляется плагином выше!
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
