@@ -1,6 +1,5 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
@@ -34,9 +33,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
     buildFeatures {
         compose = true
     }
@@ -50,6 +46,11 @@ android {
     }
 }
 
+// Глобальное исключение конфликтующей библиотеки OpenMP во всех конфигурациях
+configurations.configureEach {
+    exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
@@ -60,10 +61,10 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     
-    // Расширенный набор иконок (решает ошибку с ContentCopy, DarkMode, LightMode)
-    implementation("androidx.compose.material:material-icons-extended:1.6.8")
+    // Расширенные иконки Compose (ContentCopy, DarkMode, LightMode)
+    implementation("androidx.compose.material:material-icons-extended")
 
-    // OCR движок (только базовая версия)
+    // OCR движок Tesseract
     implementation("cz.adaptech:tesseract4android:4.7.0")
 
     testImplementation("junit:junit:4.13.2")
@@ -73,14 +74,4 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-}
-
-// Жесткая отсечка tesseract4android-openmp из всех конфигураций
-configurations.all {
-    exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
-    
-    resolutionStrategy.dependencySubstitution {
-        substitute(module("cz.adaptech:tesseract4android-openmp"))
-            .using(module("cz.adaptech:tesseract4android:4.7.0"))
-    }
 }
