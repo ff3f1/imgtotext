@@ -57,6 +57,6 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
-    implementation("com.google.mlkit:text-recognition-russian:16.0.1")
+    implementation("com.google.mlkit:text-recognition-cyrillic:16.0.1")
 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 }
