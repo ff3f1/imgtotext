@@ -7,8 +7,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Полное уничтожение openmp-модуля на уровне графа зависимостей
 configurations.all {
     exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
+    resolutionStrategy.dependencySubstitution {
+        substitute(module("cz.adaptech:tesseract4android-openmp"))
+            .using(module("cz.adaptech:tesseract4android:4.7.0"))
+    }
 }
 
 android {
@@ -54,7 +59,7 @@ android {
     }
 }
 
-// Принудительно синхронизируем целевую версию Kotlin с Java 17
+// Фиксация Java 17 для Kotlin-компилятора на CI
 tasks.withType<KotlinCompile>().configureEach {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
@@ -73,7 +78,7 @@ dependencies {
 
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Оставляем только базовый артефакт
+    // Единственный чистый OCR-артефакт
     implementation("cz.adaptech:tesseract4android:4.7.0")
 
     testImplementation("junit:junit:4.13.2")
