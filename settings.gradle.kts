@@ -10,6 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://cz-adaptech.github.io/gmaven") }
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
