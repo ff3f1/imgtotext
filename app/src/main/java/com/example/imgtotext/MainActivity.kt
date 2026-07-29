@@ -71,7 +71,7 @@ suspend fun processImageWithTesseract(context: Context, uri: Uri): String {
 
             tess.setImage(bitmap)
             val text = tess.utF8Text
-            tess.end() // Освобождаем память
+            tess.recycle() // Освобождаем память
 
             if (text.isNullOrBlank()) "Текст на фото не найден." else text
         } catch (e: Exception) {
