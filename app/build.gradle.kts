@@ -3,6 +3,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Глобальный запрет на подтягивание openmp-модуля (должен идти до блока android)
+configurations.all {
+    exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
+}
+
 android {
     namespace = "com.example.imgtotext"
     compileSdk = 35
@@ -46,11 +51,6 @@ android {
     }
 }
 
-// Глобальное исключение конфликтующей библиотеки OpenMP во всех конфигурациях
-configurations.configureEach {
-    exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
-}
-
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
@@ -61,11 +61,12 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     
-    // Расширенные иконки Compose (ContentCopy, DarkMode, LightMode)
     implementation("androidx.compose.material:material-icons-extended")
 
-    // OCR движок Tesseract
-    implementation("cz.adaptech:tesseract4android:4.7.0")
+    // Прямое отключение транзитивного openmp внутри зависимости
+    implementation("cz.adaptech:tesseract4android:4.7.0") {
+        exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
+    }
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
