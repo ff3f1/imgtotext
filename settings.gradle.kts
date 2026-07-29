@@ -11,18 +11,15 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
-plugins {
-    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
-}
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
-        maven("https://jitpack.io") // <- добавляем эту строку
+        maven { url = uri("https://cz-adaptech.github.io/gmaven") }
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
 rootProject.name = "imgtotext"
 include(":app")
- 

@@ -1,20 +1,33 @@
 package com.example.imgtotext
+
 import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.googlecode.tesseract.android.TessBaseAPI
 import kotlinx.coroutines.Dispatchers
@@ -28,11 +41,19 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            var isDarkTheme by remember { mutableStateOf<Boolean?>(null) }
+            val useDark = isDarkTheme ?: isSystemInDarkTheme()
+
+            MaterialTheme(
+                colorScheme = if (useDark) darkColorScheme() else lightColorScheme()
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     OcrScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        context = this
+                        isDarkTheme = useDark,
+                        onThemeToggle = { isDarkTheme = !useDark }
                     )
                 }
             }
@@ -40,41 +61,51 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Функция для копирования языкового файла из APK в память телефона
-fun prepareTessData(context: Context): String {
-    val dir = File(context.filesDir, "tesseract/tessdata")
-    if (!dir.exists()) dir.mkdirs()
-    val dataFile = File(dir, "rus.traineddata")
-    if (!dataFile.exists()) {
-        context.assets.open("tessdata/rus.traineddata").use { input ->
-            FileOutputStream(dataFile).use { output ->
-                input.copyTo(output)
+suspend fun prepareTessData(context: Context): String {
+    return withContext(Dispatchers.IO) {
+        val tessDir = File(context.filesDir, "tesseract")
+        val tessDataDir = File(tessDir, "tessdata")
+        if (!tessDataDir.exists()) tessDataDir.mkdirs()
+
+        val trainedDataFile = File(tessDataDir, "rus.traineddata")
+        if (!trainedDataFile.exists()) {
+            try {
+                // Путь из папки assets/tessdata/rus.traineddata
+                context.assets.open("tessdata/rus.traineddata").use { input ->
+                    FileOutputStream(trainedDataFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
+        tessDir.absolutePath
     }
-    return File(context.filesDir, "tesseract").absolutePath
 }
 
-// Асинхронная функция распознавания
-suspend fun processImageWithTesseract(context: Context, uri: Uri): String {
+suspend fun processImageWithTesseract(context: Context, uri: Uri, dataPath: String): String {
     return withContext(Dispatchers.IO) {
         try {
-            val dataPath = prepareTessData(context)
             val inputStream = context.contentResolver.openInputStream(uri)
             val bitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream?.close()
 
-            val tess = TessBaseAPI()
-            // Инициализируем русский язык
-            val success = tess.init(dataPath, "rus")
-            if (!success) {
-                return@withContext "Ошибка: Не удалось инициализировать движок Tesseract"
+            if (bitmap == null) return@withContext "Ошибка: Не удалось загрузить изображение"
+
+            val tessApi = TessBaseAPI()
+            val initSuccess = tessApi.init(dataPath, "rus")
+            if (!initSuccess) {
+                tessApi.recycle()
+                return@withContext "Ошибка: Не удалось инициализировать языковую модель Tesseract"
             }
 
-            tess.setImage(bitmap)
-            val text = tess.utF8Text
-            tess.recycle() // Освобождаем память
+            tessApi.pageSegMode = TessBaseAPI.PageSegMode.PSM_AUTO
+            tessApi.setImage(bitmap)
+            val text = tessApi.utF8Text
+            tessApi.recycle()
 
-            if (text.isNullOrBlank()) "Текст на фото не найден." else text
+            if (text.isNullOrBlank()) "Текст на изображении не обнаружен." else text.trim()
         } catch (e: Exception) {
             e.printStackTrace()
             "Ошибка обработки: ${e.localizedMessage}"
@@ -82,52 +113,144 @@ suspend fun processImageWithTesseract(context: Context, uri: Uri): String {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OcrScreen(modifier: Modifier = Modifier, context: Context) {
-    var recognizedText by remember { mutableStateOf("Выберите изображение с русским текстом") }
+fun OcrScreen(
+    isDarkTheme: Boolean,
+    onThemeToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    var recognizedText by remember { mutableStateOf("Выберите фото, чтобы извлечь из него текст...") }
+    var isProcessing by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            recognizedText = "Идет распознавание (это может занять пару секунд)..."
-            // Запускаем тяжелый процесс в фоне, чтобы интерфейс не завис
+            isProcessing = true
+            recognizedText = "Распознавание текста (работает Tesseract)..."
             coroutineScope.launch {
-                recognizedText = processImageWithTesseract(context, uri)
+                val dataPath = prepareTessData(context)
+                recognizedText = processImageWithTesseract(context, uri, dataPath)
+                isProcessing = false
             }
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Button(
-            onClick = { galleryLauncher.launch("image/*") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        ) {
-            Text("Загрузить фото")
-        }
-
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Text(
-                text = recognizedText,
-                modifier = Modifier
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState()),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("OCR Распознавание") },
+                actions = {
+                    IconButton(onClick = onThemeToggle) {
+                        Icon(
+                            imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "Сменить тему"
+                        )
+                    }
+                }
             )
+        },
+        modifier = modifier
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Button(
+                onClick = { galleryLauncher.launch("image/*") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                enabled = !isProcessing
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Обработка...")
+                } else {
+                    Text("Выбрать фото из галереи")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(recognizedText))
+                        Toast.makeText(context, "Скопировано", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = recognizedText.isNotBlank() && !isProcessing
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Копировать")
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, recognizedText)
+                            type = "text/plain"
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Поделиться"))
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = recognizedText.isNotBlank() && !isProcessing
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Поделиться")
+                }
+
+                IconButton(
+                    onClick = { recognizedText = "" },
+                    enabled = recognizedText.isNotBlank() && !isProcessing
+                ) {
+                    Icon(Icons.Default.Clear, contentDescription = "Очистить")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                tonalElevation = 2.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = recognizedText,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
