@@ -7,14 +7,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Полное уничтожение openmp-модуля на уровне графа зависимостей
-configurations.all {
-    exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
-    resolutionStrategy.dependencySubstitution {
-        substitute(module("cz.adaptech:tesseract4android-openmp"))
-            .using(module("cz.adaptech:tesseract4android:4.7.0"))
-    }
-}
+
 
 android {
     namespace = "com.example.imgtotext"
