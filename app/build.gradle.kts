@@ -7,6 +7,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Жестко вырезаем openmp по названию модуля отовсюду
+configurations.all {
+    exclude(module = "tesseract4android-openmp")
+    exclude(group = "cz.adaptech.tesseract4android", module = "tesseract4android-openmp")
+}
+
 android {
     namespace = "com.example.imgtotext"
     compileSdk = 35
@@ -46,6 +52,8 @@ android {
         }
         jniLibs {
             useLegacyPackaging = true
+            // Страховка от конфликтов с нативными сошками
+            pickFirsts += "**/libjpeg.so"
         }
     }
 }
@@ -67,8 +75,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Единственная библиотека Tesseract (чистая сборка)
-    implementation("cz.adaptech:tesseract4android:4.7.0")
+    // Точный groupId библиотеки
+    implementation("cz.adaptech.tesseract4android:tesseract4android:4.7.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
