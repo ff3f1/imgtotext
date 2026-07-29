@@ -69,12 +69,20 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // Объявляем прямое замещение модулей на уровне Gradle
+    modules {
+        module("cz.adaptech:tesseract4android-openmp") {
+            replacedBy("cz.adaptech:tesseract4android", "Исключаем дубликаты классов")
+        }
+    }
 }
 
-// Принудительная замена модуля-дубликата на базовый tesseract4android
+// Принудительная замена любая конфигурации tesseract4android-openmp на базовый пакет
 configurations.all {
     resolutionStrategy.dependencySubstitution {
         substitute(module("cz.adaptech:tesseract4android-openmp"))
             .using(module("cz.adaptech:tesseract4android:4.7.0"))
     }
+    exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
 }
