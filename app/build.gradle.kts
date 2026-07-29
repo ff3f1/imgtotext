@@ -55,7 +55,11 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    
+    // Иконки (ContentCopy, DarkMode, LightMode)
+    implementation("androidx.compose.material:material-icons-extended:1.5.4")
 
+    // OCR движок
     implementation("cz.adaptech:tesseract4android:4.7.0")
 
     testImplementation("junit:junit:4.13.2")
@@ -67,6 +71,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
 
-configurations.all {
-    exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
+configurations.configureEach {
+    resolutionStrategy {
+        exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
+    }
 }
