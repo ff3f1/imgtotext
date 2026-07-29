@@ -41,7 +41,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            // Переключатель темы (по умолчанию берем системную, но даем пользователю выбор)
             var isDarkTheme by remember { mutableStateOf<Boolean?>(null) }
             val useDark = isDarkTheme ?: isSystemInDarkTheme()
 
@@ -145,7 +144,6 @@ fun OcrScreen(
             TopAppBar(
                 title = { Text("AI OCR Распознавание") },
                 actions = {
-                    // Кнопка переключения темы в шапке
                     IconButton(onClick = onThemeToggle) {
                         Icon(
                             imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
@@ -164,7 +162,6 @@ fun OcrScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Главная кнопка выбора фото
             Button(
                 onClick = { galleryLauncher.launch("image/*") },
                 modifier = Modifier
@@ -187,7 +184,6 @@ fun OcrScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Панель дополнительных действий (Копировать, Поделиться, Очистить)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -232,7 +228,6 @@ fun OcrScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Окно вывода распознанного текста с прокруткой
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
