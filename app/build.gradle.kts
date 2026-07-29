@@ -1,11 +1,11 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.agp)
+    alias(libs.plugins.kotlinAndroid)
+    alias(libs.plugins.kotlinCompose)
 }
 
 android {
-    namespace = "com.example.ocrApp" // Укажи свой namespace, если другой
+    namespace = "com.example.ocrApp"
     compileSdk = 34
 
     defaultConfig {
@@ -37,7 +37,6 @@ android {
     buildFeatures {
         compose = true
     }
-    // Чтобы Android не сжимал файл нейросети в assets
     androidResources {
         noCompress += "onnx"
     }
@@ -49,13 +48,12 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
 
-    // Исправлены обращения к libs.versions.toml (добавлено .compose.)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
 
-    // ONNX Runtime (официальная библиотека Microsoft)
+    // ONNX Runtime
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.0")
 
     testImplementation(libs.junit)
