@@ -1,5 +1,7 @@
 package com.example.imgtotext
 
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -29,12 +31,9 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
-import com.googlecode.tesseract.android.TessBaseAPI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.FileOutputStream
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,30 +60,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-suspend fun prepareTessData(context: Context): String {
-    return withContext(Dispatchers.IO) {
-        val tessDir = File(context.filesDir, "tesseract")
-        val tessDataDir = File(tessDir, "tessdata")
-        if (!tessDataDir.exists()) tessDataDir.mkdirs()
-
-        val trainedDataFile = File(tessDataDir, "rus.traineddata")
-        if (!trainedDataFile.exists()) {
-            try {
-                // Путь из папки assets/tessdata/rus.traineddata
-                context.assets.open("tessdata/rus.traineddata").use { input ->
-                    FileOutputStream(trainedDataFile).use { output ->
-                        input.copyTo(output)
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-        tessDir.absolutePath
-    }
-}
-
-suspend fun processImageWithTesseract(context: Context, uri: Uri, dataPath: String): String {
+suspend fun processImageWithOnnx(context: Context, uri: Uri): String {
     return withContext(Dispatchers.IO) {
         try {
             val inputStream = context.contentResolver.openInputStream(uri)
@@ -93,22 +69,20 @@ suspend fun processImageWithTesseract(context: Context, uri: Uri, dataPath: Stri
 
             if (bitmap == null) return@withContext "Ошибка: Не удалось загрузить изображение"
 
-            val tessApi = TessBaseAPI()
-            val initSuccess = tessApi.init(dataPath, "rus")
-            if (!initSuccess) {
-                tessApi.recycle()
-                return@withContext "Ошибка: Не удалось инициализировать языковую модель Tesseract"
-            }
+            // Загрузка и инициализация ONNX модели из assets
+            val env = OrtEnvironment.getEnvironment()
+            val modelBytes = context.assets.open("model.onnx").use { it.readBytes() }
+            val session = env.createSession(modelBytes, OrtSession.SessionOptions())
 
-            tessApi.pageSegMode = TessBaseAPI.PageSegMode.PSM_AUTO
-            tessApi.setImage(bitmap)
-            val text = tessApi.utF8Text
-            tessApi.recycle()
+            // Здесь будет выполняться препроцессинг и прогон тензора через session.run(...)
 
-            if (text.isNullOrBlank()) "Текст на изображении не обнаружен." else text.trim()
+            session.close()
+            env.close()
+
+            "ONNX модель успешно инициализирована! Готова к инференсу."
         } catch (e: Exception) {
             e.printStackTrace()
-            "Ошибка обработки: ${e.localizedMessage}"
+            "Ошибка ONNX: ${e.localizedMessage}"
         }
     }
 }
@@ -131,10 +105,9 @@ fun OcrScreen(
     ) { uri: Uri? ->
         if (uri != null) {
             isProcessing = true
-            recognizedText = "Распознавание текста (работает Tesseract)..."
+            recognizedText = "Распознавание текста (ONNX Runtime)..."
             coroutineScope.launch {
-                val dataPath = prepareTessData(context)
-                recognizedText = processImageWithTesseract(context, uri, dataPath)
+                recognizedText = processImageWithOnnx(context, uri)
                 isProcessing = false
             }
         }

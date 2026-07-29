@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.ocrApp"
+    namespace = "com.example.imgtotext"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.ocrApp"
+        applicationId = "com.example.imgtotext"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -31,14 +31,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         compose = true
     }
     androidResources {
         noCompress += "onnx"
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -52,6 +55,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+
+    // Расширенный пак иконок Material (для ContentCopy, DarkMode, LightMode)
+    implementation("androidx.compose.material:material-icons-extended")
 
     // ONNX Runtime
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.0")
