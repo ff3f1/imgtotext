@@ -11,9 +11,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,9 +41,21 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MaterialTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    OcrScreen(modifier = Modifier.padding(innerPadding))
+            // Переключатель темы (по умолчанию берем системную, но даем пользователю выбор)
+            var isDarkTheme by remember { mutableStateOf<Boolean?>(null) }
+            val useDark = isDarkTheme ?: isSystemInDarkTheme()
+
+            MaterialTheme(
+                colorScheme = if (useDark) darkColorScheme() else lightColorScheme()
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    OcrScreen(
+                        isDarkTheme = useDark,
+                        onThemeToggle = { isDarkTheme = !useDark }
+                    )
                 }
             }
         }
@@ -72,34 +91,38 @@ suspend fun processImageWithTesseract(context: Context, uri: Uri, dataPath: Stri
             val bitmap = BitmapFactory.decodeStream(inputStream)
             inputStream?.close()
 
-            if (bitmap == null) return@withContext "Ошибка: Не удалось загрузить фото"
+            if (bitmap == null) return@withContext "Ошибка: Не удалось загрузить изображение"
 
             val tessApi = TessBaseAPI()
             val initSuccess = tessApi.init(dataPath, "rus")
             if (!initSuccess) {
                 tessApi.recycle()
-                return@withContext "Ошибка: Не удалось инициализировать Tesseract"
+                return@withContext "Ошибка: Не удалось инициализировать языковую модель Tesseract"
             }
 
-            // Автоматический поиск блоков текста
             tessApi.pageSegMode = TessBaseAPI.PageSegMode.PSM_AUTO
             tessApi.setImage(bitmap)
             val text = tessApi.utF8Text
             tessApi.recycle()
 
-            if (text.isNullOrBlank()) "Текст не найден. Попробуйте другое фото." else text
+            if (text.isNullOrBlank()) "Текст на изображении не обнаружен." else text.trim()
         } catch (e: Exception) {
             e.printStackTrace()
-            "Ошибка: ${e.localizedMessage}"
+            "Ошибка обработки: ${e.localizedMessage}"
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OcrScreen(modifier: Modifier = Modifier) {
+fun OcrScreen(
+    isDarkTheme: Boolean,
+    onThemeToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
-    var recognizedText by remember { mutableStateOf("Выберите фото для распознавания текста...") }
+    var recognizedText by remember { mutableStateOf("Выберите или сделайте фото, чтобы извлечь из него текст...") }
     var isProcessing by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
@@ -108,7 +131,7 @@ fun OcrScreen(modifier: Modifier = Modifier) {
     ) { uri: Uri? ->
         if (uri != null) {
             isProcessing = true
-            recognizedText = "Идет распознавание (Tesseract)..."
+            recognizedText = "Распознавание текста (работает Tesseract)..."
             coroutineScope.launch {
                 val dataPath = prepareTessData(context)
                 recognizedText = processImageWithTesseract(context, uri, dataPath)
@@ -117,178 +140,121 @@ fun OcrScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    Column(
-        modifier = modifier.fillMaxSize().padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Button(
-            onClick = { galleryLauncher.launch("image/*") },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            enabled = !isProcessing
-        ) {
-            Text("Выбрать фото")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilledTonalButton(
-                onClick = {
-                    clipboardManager.setText(AnnotatedString(recognizedText))
-                    Toast.makeText(context, "Текст скопирован!", Toast.LENGTH_SHORT).show()
-                },
-                modifier = Modifier.weight(1f),
-                enabled = recognizedText.isNotBlank() && !isProcessing
-            ) {
-                Text("Копировать")
-            }
-
-            FilledTonalButton(
-                onClick = {
-                    val sendIntent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_TEXT, recognizedText)
-                        type = "text/plain"
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("AI OCR Распознавание") },
+                actions = {
+                    // Кнопка переключения темы в шапке
+                    IconButton(onClick = onThemeToggle) {
+                        Icon(
+                            imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "Сменить тему"
+                        )
                     }
-                    val shareIntent = Intent.createChooser(sendIntent, "Отправить текст")
-                    context.startActivity(shareIntent)
-                },
-                modifier = Modifier.weight(1f),
-                enabled = recognizedText.isNotBlank() && !isProcessing
-            ) {
-                Text("Поделиться")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Surface(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Text(
-                text = recognizedText,
-                modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState()),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
-        }
-    }
-}                        modifier = Modifier.padding(innerPadding)
+        },
+        modifier = modifier
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Главная кнопка выбора фото
+            Button(
+                onClick = { galleryLauncher.launch("image/*") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                enabled = !isProcessing
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Обработка...")
+                } else {
+                    Text("Выбрать фото из галереи")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Панель дополнительных действий (Копировать, Поделиться, Очистить)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(recognizedText))
+                        Toast.makeText(context, "Скопировано в буфер обмена", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = recognizedText.isNotBlank() && !isProcessing
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Копировать")
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        val sendIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, recognizedText)
+                            type = "text/plain"
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Поделиться текстом"))
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = recognizedText.isNotBlank() && !isProcessing
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Поделиться")
+                }
+
+                IconButton(
+                    onClick = { recognizedText = "" },
+                    enabled = recognizedText.isNotBlank() && !isProcessing
+                ) {
+                    Icon(Icons.Default.Clear, contentDescription = "Очистить")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Окно вывода распознанного текста с прокруткой
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                tonalElevation = 2.dp
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = recognizedText,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState()),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-        }
-    }
-}
-
-// Асинхронная функция распознавания через ML Kit
-suspend fun processImageWithMLKit(context: Context, uri: Uri): String {
-    return try {
-        val image = InputImage.fromFilePath(context, uri)
-        val recognizer = TextRecognition.getClient(CyrillicTextRecognizerOptions.Builder().build())
-        val result = recognizer.process(image).await()
-        
-        if (result.text.isBlank()) "Текст не найден. Попробуйте другое фото." else result.text
-    } catch (e: Exception) {
-        e.printStackTrace()
-        "Ошибка: ${e.localizedMessage}"
-    }
-}
-
-@Composable
-fun OcrScreen(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val clipboardManager = LocalClipboardManager.current
-    var recognizedText by remember { mutableStateOf("Выберите фото для распознавания текста...") }
-    var isProcessing by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            isProcessing = true
-            recognizedText = "Нейросеть обрабатывает изображение..."
-            coroutineScope.launch {
-                recognizedText = processImageWithMLKit(context, uri)
-                isProcessing = false
-            }
-        }
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Главная кнопка загрузки
-        Button(
-            onClick = { galleryLauncher.launch("image/*") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            enabled = !isProcessing
-        ) {
-            Text("Выбрать фото")
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Блок кнопок управления текстом
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilledTonalButton(
-                onClick = {
-                    clipboardManager.setText(AnnotatedString(recognizedText))
-                    Toast.makeText(context, "Текст скопирован!", Toast.LENGTH_SHORT).show()
-                },
-                modifier = Modifier.weight(1f),
-                enabled = recognizedText.isNotBlank() && !isProcessing
-            ) {
-                Text("Копировать")
-            }
-
-            FilledTonalButton(
-                onClick = {
-                    val sendIntent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_TEXT, recognizedText)
-                        type = "text/plain"
-                    }
-                    val shareIntent = Intent.createChooser(sendIntent, "Отправить текст")
-                    context.startActivity(shareIntent)
-                },
-                modifier = Modifier.weight(1f),
-                enabled = recognizedText.isNotBlank() && !isProcessing
-            ) {
-                Text("Поделиться")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Окно с результатом
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Text(
-                text = recognizedText,
-                modifier = Modifier
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState()),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
