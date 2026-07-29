@@ -22,7 +22,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.russian.RussianTextRecognizerOptions
+import import com.google.mlkit.vision.text.cyrillic.CyrillicTextRecognizerOptions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
 suspend fun processImageWithMLKit(context: Context, uri: Uri): String {
     return try {
         val image = InputImage.fromFilePath(context, uri)
-        val recognizer = TextRecognition.getClient(RussianTextRecognizerOptions.Builder().build())
+        val recognizer = TextRecognition.getClient(CyrillicTextRecognizerOptions.Builder().build())
         val result = recognizer.process(image).await()
         
         if (result.text.isBlank()) "Текст не найден. Попробуйте другое фото." else result.text
