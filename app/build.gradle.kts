@@ -53,5 +53,5 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
-    implementation("cz.adaptech:tesseract4android:4.7.0")
+    implementation("cz.adaptech.tesseract4android:tesseract4android:4.9.0")
 }
