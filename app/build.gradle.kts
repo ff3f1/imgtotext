@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
@@ -33,6 +34,9 @@ android {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
     }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
     buildFeatures {
         compose = true
     }
@@ -56,10 +60,10 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     
-    // Расширенные иконки Compose (ContentCopy, DarkMode, LightMode)
+    // Расширенный набор иконок (решает ошибку с ContentCopy, DarkMode, LightMode)
     implementation("androidx.compose.material:material-icons-extended:1.6.8")
 
-    // OCR движок
+    // OCR движок (только базовая версия)
     implementation("cz.adaptech:tesseract4android:4.7.0")
 
     testImplementation("junit:junit:4.13.2")
@@ -69,20 +73,14 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-
-    // Объявляем прямое замещение модулей на уровне Gradle
-    modules {
-        module("cz.adaptech:tesseract4android-openmp") {
-            replacedBy("cz.adaptech:tesseract4android", "Исключаем дубликаты классов")
-        }
-    }
 }
 
-// Принудительная замена любая конфигурации tesseract4android-openmp на базовый пакет
+// Жесткая отсечка tesseract4android-openmp из всех конфигураций
 configurations.all {
+    exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
+    
     resolutionStrategy.dependencySubstitution {
         substitute(module("cz.adaptech:tesseract4android-openmp"))
             .using(module("cz.adaptech:tesseract4android:4.7.0"))
     }
-    exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
 }
