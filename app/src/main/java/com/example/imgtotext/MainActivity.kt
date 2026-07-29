@@ -1,3 +1,4 @@
+package com.example.imgtotext
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
