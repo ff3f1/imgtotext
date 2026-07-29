@@ -7,8 +7,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-
-
 android {
     namespace = "com.example.imgtotext"
     compileSdk = 35
@@ -52,7 +50,6 @@ android {
     }
 }
 
-// Фиксация Java 17 для Kotlin-компилятора на CI
 tasks.withType<KotlinCompile>().configureEach {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
@@ -68,10 +65,9 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Единственный чистый OCR-артефакт
+    // Единственная библиотека Tesseract (чистая сборка)
     implementation("cz.adaptech:tesseract4android:4.7.0")
 
     testImplementation("junit:junit:4.13.2")
