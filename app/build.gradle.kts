@@ -1,10 +1,9 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.jetbrains.kotlin.android)
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
-    // ВАЖНО: Если у тебя пакет назывался по-другому, поменяй эти две строки!
     namespace = "com.example.imgtotext"
     compileSdk = 35
 
@@ -48,7 +47,6 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
         jniLibs {
-            // Спасительная настройка для Tesseract
             useLegacyPackaging = true
         }
     }
