@@ -4,19 +4,18 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-// Глобальный запрет на подтягивание дублирующего openmp-модуля
 configurations.all {
     exclude(group = "cz.adaptech", module = "tesseract4android-openmp")
 }
 
 android {
     namespace = "com.example.imgtotext"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.example.imgtotext"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
@@ -59,10 +58,8 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
 
-    // Иконки UI
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Основная библиотека Tesseract OCR
     implementation("cz.adaptech:tesseract4android:4.7.0")
 
     testImplementation("junit:junit:4.13.2")
